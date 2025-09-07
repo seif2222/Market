@@ -377,4 +377,6 @@ def reports():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    debug_flag = os.environ.get("FLASK_DEBUG", "0") == "1"
+    use_reloader = os.environ.get("FLASK_USE_RELOADER", "0") == "1"
+    app.run(host="0.0.0.0", port=port, debug=debug_flag, use_reloader=use_reloader)

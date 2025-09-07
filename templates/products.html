@@ -1,162 +1,65 @@
-{% extends "base.html" %}
-
-{% block title %}إدارة المنتجات - نظام إدارة السوق{% endblock %}
-
+{% extends 'base.html' %}
 {% block content %}
-<div class="container mt-4">
-    <!-- Page Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-            <i class="fas fa-box me-2 text-primary"></i>
-            إدارة المنتجات
-        </h2>
-        <a href="{{ url_for('add_product') }}" class="btn btn-primary">
-            <i class="fas fa-plus me-1"></i>
-            إضافة منتج جديد
-        </a>
-    </div>
-    
-    <!-- Products Table -->
-    <div class="card">
-        <div class="card-body">
-            {% if products %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>رمز المنتج</th>
-                            <th>اسم المنتج</th>
-                            <th>السعر</th>
-                            <th>الكمية المتوفرة</th>
-                            <th>الفئة</th>
-                            <th>QR Code</th>
-                            <th>تاريخ الإضافة</th>
-                            <th>الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for product in products %}
-                        <tr {% if product.quantity <= 5 %}class="table-warning"{% endif %}>
-                            <td>
-                                <code>{{ product.product_id }}</code>
-                            </td>
-                            <td>
-                                <strong>{{ product.name }}</strong>
-                            </td>
-                            <td>
-                                <span class="text-success fw-bold">
-                                    {{ "%.2f"|format(product.price) }} جنيه
-                                </span>
-                            </td>
-                            <td>
-                                {% if product.quantity <= 5 %}
-                                    <span class="badge bg-warning text-dark">
-                                        {{ product.quantity }}
-                                        <i class="fas fa-exclamation-triangle ms-1"></i>
-                                    </span>
-                                {% elif product.quantity == 0 %}
-                                    <span class="badge bg-danger">
-                                        نفد المخزون
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-success">
-                                        {{ product.quantity }}
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-secondary">{{ product.category }}</span>
-                            </td>
-                            <td>
-                                {% if product.qr_code_path %}
-                                    <img src="{{ url_for('static', filename=product.qr_code_path.replace('static/', '')) }}" 
-                                         alt="QR Code" style="width: 50px; height: 50px;" 
-                                         data-bs-toggle="tooltip" title="QR Code للمنتج">
-                                {% else %}
-                                    <span class="text-muted">لا يوجد</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {{ product.date_added.strftime('%Y-%m-%d') if product.date_added else 'غير محدد' }}
-                            </td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{{ url_for('edit_product', product_id=product.id) }}" 
-                                       class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <button class="btn btn-sm btn-outline-danger" 
-                                            onclick="deleteProduct({{ product.id }}, '{{ product.name }}')">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="text-center text-muted py-5">
-                <i class="fas fa-box fa-5x mb-3"></i>
-                <h4>لا توجد منتجات</h4>
-                <p>ابدأ بإضافة أول منتج في السوق</p>
-                <a href="{{ url_for('add_product') }}" class="btn btn-primary">
-                    <i class="fas fa-plus me-1"></i>
-                    إضافة منتج جديد
-                </a>
-            </div>
-            {% endif %}
-        </div>
-    </div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">إدارة المنتجات</h3>
+  <div>
+    <a href="{{ url_for('product_add') }}" class="btn btn-primary">إضافة منتج</a>
+  </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">تأكيد الحذف</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>هل أنت متأكد من حذف المنتج "<span id="productName"></span>"؟</p>
-                <p class="text-danger"><small>هذا الإجراء لا يمكن التراجع عنه!</small></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
-                <form id="deleteForm" method="POST" style="display: inline;">
-                    <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-trash me-1"></i>
-                        حذف المنتج
-                    </button>
+<div class="card mb-3">
+  <div class="card-body">
+    <form action="{{ url_for('import_products') }}" method="post" enctype="multipart/form-data" class="row g-2">
+      <div class="col-auto">
+        <input class="form-control" type="file" name="excel_file" accept=".xlsx,.xls" required>
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-success" type="submit">استيراد من Excel</button>
+      </div>
+      <div class="col-12"><small class="text-muted">الأعمدة المطلوبة: Product ID, Product Name, Price (EGP), Quantity, Date Added</small></div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>الكود</th>
+            <th>الاسم</th>
+            <th>السعر (EGP)</th>
+            <th>الكمية</th>
+            <th>تاريخ الإضافة</th>
+            <th>QR</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+            <tr>
+              <td>{{ p['product_id'] }}</td>
+              <td>{{ p['name'] }}</td>
+              <td>{{ '%.2f'|format(p['price_egp']) }}</td>
+              <td>{{ p['quantity'] }}</td>
+              <td>{{ p['date_added'] }}</td>
+              <td>
+                {% if p['qr_path'] %}
+                  <img src="{{ url_for('serve_qr', filename=p['product_id'] ~ '.png') }}" width="64" height="64" alt="QR">
+                {% endif %}
+              </td>
+              <td>
+                <a href="{{ url_for('product_edit', product_id=p['product_id']) }}" class="btn btn-sm btn-warning">تعديل</a>
+                <form action="{{ url_for('product_delete', product_id=p['product_id']) }}" method="post" class="d-inline" onsubmit="return confirm('تأكيد حذف المنتج؟');">
+                  <button type="submit" class="btn btn-sm btn-danger">حذف</button>
                 </form>
-            </div>
-        </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+  </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-function deleteProduct(productId, productName) {
-    // Set product name in modal
-    document.getElementById('productName').textContent = productName;
-    
-    // Set form action
-    document.getElementById('deleteForm').action = `/delete_product/${productId}`;
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
-    modal.show();
-}
-
-// Initialize tooltips
-document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-});
-</script>
 {% endblock %}

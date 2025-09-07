@@ -2,7 +2,8 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3 class="mb-0">صفحة البيع</h3>
-  <div>
+  <div class="d-flex gap-2 align-items-center">
+    <input type="text" id="seller-name" class="form-control" placeholder="اسم البائع" style="width:220px">
     <button id="btn-complete" class="btn btn-success">إتمام البيع</button>
     <button id="btn-clear" class="btn btn-outline-danger">إفراغ السلة</button>
   </div>
@@ -80,13 +81,12 @@
   const manualQty = document.getElementById('manual-qty');
   const btnComplete = document.getElementById('btn-complete');
   const btnClear = document.getElementById('btn-clear');
+  const sellerInput = document.getElementById('seller-name');
 
-  // Focus hidden input to capture QR scanner keystrokes
   function focusHidden(){ hidden.focus(); }
   window.addEventListener('load', focusHidden);
   window.addEventListener('click', focusHidden);
 
-  // Accumulate scanner input until Enter
   let buffer = '';
   hidden.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -124,7 +124,7 @@
       const tr = e.target.closest('tr');
       const pid = tr.getAttribute('data-pid');
       const qty = Math.max(0, parseInt(e.target.value||'0'));
-      const res = await fetch('{{ url_for('cart_update') }}',{
+      await fetch('{{ url_for('cart_update') }}',{
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({product_id: pid, quantity: qty})
       });
@@ -150,7 +150,11 @@
   });
 
   btnComplete.addEventListener('click', async ()=>{
-    const res = await fetch('{{ url_for('sale_complete') }}', {method:'POST'});
+    const seller = sellerInput.value.trim();
+    const res = await fetch('{{ url_for('sale_complete') }}', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({seller})
+    });
     const data = await res.json();
     if (data.ok) {
       alert('تم إتمام البيع. رقم العملية: ' + data.sale_id + ' (' + data.used_lang + ')');

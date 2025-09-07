@@ -2,6 +2,7 @@ import os
 import json
 from datetime import datetime
 from typing import Dict, List
+import logging
 
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, session, jsonify
 from werkzeug.utils import secure_filename
@@ -29,9 +30,22 @@ UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 QR_DIR = os.path.join(BASE_DIR, "static", "qr")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+LOGS_DIR = os.path.join(BASE_DIR, "logs")
 
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(QR_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+# Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(os.path.join(LOGS_DIR, "app.log"), encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger("market")
 
 app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=STATIC_DIR)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
@@ -42,7 +56,7 @@ MARKET_ADDRESS = os.environ.get("MARKET_ADDRESS", "القاهرة، مصر")
 MARKET_PHONE = os.environ.get("MARKET_PHONE", "+20 100 000 0000")
 
 # Printer configuration
-PRINTER_BACKEND = os.environ.get("PRINTER_BACKEND", "escpos_usb")  # escpos_usb, escpos_network, cups
+PRINTER_BACKEND = os.environ.get("PRINTER_BACKEND", "escpos_usb")  # escpos_usb, escpos_network, cups, win32
 PRINTER_ARABIC = os.environ.get("PRINTER_ARABIC", "1") == "1"
 
 # Initialize DB
@@ -107,6 +121,7 @@ def product_add():
             upsert_product(product_id, name, price_value, quantity_value, date_added, qr_dir=QR_DIR)
             flash("تم حفظ المنتج وإنشاء QR بنجاح.", "success")
         except Exception as exc:
+            logger.exception("Failed to upsert product")
             flash(f"حدث خطأ أثناء الحفظ: {exc}", "danger")
         return redirect(url_for("products_list"))
 
@@ -142,6 +157,7 @@ def product_edit(product_id: str):
             upsert_product(product_id, name, price_value, quantity_value, date_added, qr_dir=QR_DIR)
             flash("تم تحديث المنتج.", "success")
         except Exception as exc:
+            logger.exception("Failed to update product")
             flash(f"حدث خطأ أثناء التحديث: {exc}", "danger")
         return redirect(url_for("products_list"))
 
@@ -159,6 +175,7 @@ def product_delete(product_id: str):
         delete_product_by_product_id(product_id)
         flash("تم حذف المنتج.", "success")
     except Exception as exc:
+        logger.exception("Failed to delete product")
         flash(f"تعذر حذف المنتج: {exc}", "danger")
     return redirect(url_for("products_list"))
 
@@ -179,7 +196,6 @@ def import_products():
         from openpyxl import load_workbook
         wb = load_workbook(path, data_only=True)
         ws = wb.active
-        # Map headers
         headers = {}
         for idx, cell in enumerate(ws[1], start=1):
             headers[cell.value] = idx
@@ -216,6 +232,7 @@ def import_products():
 
         flash(f"تم استيراد {count} منتج(ات) وتوليد QR.", "success")
     except Exception as exc:
+        logger.exception("Failed to import Excel")
         flash(f"فشل الاستيراد: {exc}", "danger")
 
     return redirect(url_for("products_list"))
@@ -290,6 +307,9 @@ def sale_complete():
     if not cart:
         return jsonify({"ok": False, "message": "لا توجد عناصر في السلة"}), 400
 
+    payload = request.get_json(silent=True) or {}
+    seller = (payload.get("seller") or "").strip() or None
+
     # Build sale items and totals
     items: List[Dict] = []
     total: float = 0.0
@@ -310,46 +330,51 @@ def sale_complete():
     if not items:
         return jsonify({"ok": False, "message": "لا توجد عناصر صالحة"}), 400
 
-    # Create sale in DB
-    sale_id = create_sale_with_items(
-        sale_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        items=items,
-        total_egp=total,
-    )
-
-    # Decrement stock
-    for item in items:
-        decrement_product_stock(item["product_id"], item["quantity"])
-
-    # Print receipt
-    printer = PrinterClient(
-        backend=PRINTER_BACKEND,
-        prefer_arabic=PRINTER_ARABIC,
-    )
-    receipt_lines_ar, receipt_lines_en = build_receipt_lines(
-        market_name=MARKET_NAME,
-        market_address=MARKET_ADDRESS,
-        market_phone=MARKET_PHONE,
-        sale_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
-        items=items,
-        total_egp=total,
-    )
-
-    used_lang = printer.print_receipt(receipt_lines_ar=receipt_lines_ar, receipt_lines_en=receipt_lines_en)
-
-    # Update print language stored in sale record (simple approach: update field)
     try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE sales SET print_lang = ? WHERE id = ?", (used_lang, sale_id))
-        conn.commit()
-    finally:
-        conn.close()
+        # Create sale in DB
+        sale_id = create_sale_with_items(
+            sale_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            items=items,
+            total_egp=total,
+            seller=seller,
+        )
 
-    # Clear cart
-    _save_cart({})
+        # Decrement stock
+        for item in items:
+            decrement_product_stock(item["product_id"], item["quantity"])
 
-    return jsonify({"ok": True, "sale_id": sale_id, "used_lang": used_lang})
+        # Print receipt
+        printer = PrinterClient(
+            backend=PRINTER_BACKEND,
+            prefer_arabic=PRINTER_ARABIC,
+        )
+        receipt_lines_ar, receipt_lines_en = build_receipt_lines(
+            market_name=MARKET_NAME,
+            market_address=MARKET_ADDRESS,
+            market_phone=MARKET_PHONE,
+            sale_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
+            items=items,
+            total_egp=total,
+            seller=seller,
+        )
+
+        used_lang = printer.print_receipt(receipt_lines_ar=receipt_lines_ar, receipt_lines_en=receipt_lines_en)
+
+        # Update print language stored in sale record
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("UPDATE sales SET print_lang = ? WHERE id = ?", (used_lang, sale_id))
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Clear cart
+        _save_cart({})
+        return jsonify({"ok": True, "sale_id": sale_id, "used_lang": used_lang})
+    except Exception as exc:
+        logger.exception("Sale completion failed")
+        return jsonify({"ok": False, "message": "حدث خطأ أثناء إتمام البيع. برجاء المحاولة مرة أخرى."}), 500
 
 
 @app.route("/reports")

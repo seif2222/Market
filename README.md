@@ -1,64 +1,60 @@
 # نظام إدارة السوق (Market Management System)
 
-تطبيق Flask باللغة العربية لإدارة المنتجات والمبيعات مع دعم قارئ QR وطباعة مباشرة على طابعات POS (ESC/POS أو CUPS) مع دعم العربية/الإنجليزية.
+تطبيق Flask باللغة العربية لإدارة المنتجات والمبيعات مع دعم قارئ QR وطباعة مباشرة على طابعات POS (ESC/POS أو CUPS أو Win32) مع دعم العربية/الإنجليزية.
 
 ## المتطلبات
 - Python 3.10+
-- نظام Linux (موصى به) أو Windows (مع تعديل الطابعة)
-- قاعدة بيانات SQLite (ضمنيًا)
+- يعمل أوفلاين (SQLite محلي)
+- Linux أو Windows
 
-## التثبيت والتشغيل
-1. تثبيت الحزم:
+## التثبيت والتشغيل (Linux)
 ```bash
-python3 -m pip install --upgrade pip
-pip install -r requirements.txt || pip install $(grep -v '^pycups' requirements.txt | tr '\n' ' ')
+sudo apt update
+sudo apt install -y python3 python3-pip libcups2-dev cups
+pip install --break-system-packages -r requirements.txt || pip install --break-system-packages $(grep -v '^pycups' requirements.txt | tr '\n' ' ')
+cp .env.example .env
+python app.py
+# افتح: http://localhost:5000
 ```
-2. تشغيل التطبيق:
-```bash
+
+## التثبيت والتشغيل (Windows)
+1. ثبّت Python 3.10+.
+2. في PowerShell داخل مجلد المشروع:
+```powershell
+pip install -r requirements.txt
+copy .env.example .env
+# للطباعة عبر Windows API:
+setx PRINTER_BACKEND win32
+# اسم الطابعة (اختياري):
+setx WIN32_PRINTER_NAME "Your Windows Printer Name"
 python app.py
 ```
-3. افتح المتصفح على: `http://localhost:5000`
 
-## استيراد المنتجات من Excel
-- يجب أن يحتوي ملف Excel على الأعمدة التالية:
-  - Product ID
-  - Product Name
-  - Price (EGP)
-  - Quantity
-  - Date Added
-- من صفحة "المنتجات" اختر الملف واضغط "استيراد". يتم إنشاء QR لكل منتج تلقائياً ويتم حفظ الصورة داخل `static/qr/`.
+ملاحظة: على Windows قد لا يعمل CUPS، استخدم `PRINTER_BACKEND=win32` أو طابعات ESC/POS على الشبكة (`escpos_network`).
 
-## صفحة البيع
-- يمكنك إضافة المنتج يدويًا بكتابة كود المنتج أو عبر قارئ QR.
-- قارئ QR يعمل كلوحة مفاتيح، يدخل الكود في حقل مخفي ويتم إضافة المنتج تلقائياً.
-- عند اكتمال البيع اضغط "إتمام البيع" ليتم الحفظ في قاعدة البيانات والطباعة.
+## الإعدادات (.env)
+- MARKET_NAME, MARKET_ADDRESS, MARKET_PHONE
+- PRINTER_BACKEND: escpos_usb | escpos_network | cups | win32
+- PRINTER_ARABIC=1 (العربية أولاً)
+- USB_VENDOR_ID, USB_PRODUCT_ID (لـ escpos_usb)
+- NETWORK_PRINTER_HOST, NETWORK_PRINTER_PORT (لـ escpos_network)
+- CUPS_PRINTER_NAME (لـ cups)
+- WIN32_PRINTER_NAME (لـ win32)
+- FLASK_DEBUG=0, FLASK_USE_RELOADER=0 (لبيئات مُدارة)
 
-## الطباعة المباشرة
-يدعم النظام 3 أنماط:
-- ESC/POS عبر USB: `PRINTER_BACKEND=escpos_usb`
-- ESC/POS عبر الشبكة: `PRINTER_BACKEND=escpos_network`
-- CUPS (Linux): `PRINTER_BACKEND=cups`
+## الميزات
+- استيراد المنتجات من Excel (openpyxl)
+- إنشاء QR لكل منتج تلقائياً (`static/qr`)
+- صفحة بيع مع دعم قارئ QR (Keyboard Emulator) وإدخال يدوي
+- حفظ كل عملية بيع في SQLite مع: التاريخ والوقت، المجموع، لغة الطباعة، واسم البائع
+- طباعة مباشرة على طابعات حرارية ESC/POS (USB/شبكة) أو عبر CUPS/Win32
+- واجهة عربية RTL وFallback للإنجليزية إذا لم تدعم الطابعة العربية
+- تقارير يومية/شهرية مع الإجمالي
 
-ملف الإعدادات عبر المتغيرات (يمكن وضعها في `.env`):
-- MARKET_NAME، MARKET_ADDRESS، MARKET_PHONE
-- PRINTER_BACKEND (القيم: escpos_usb, escpos_network, cups)
-- PRINTER_ARABIC=1 للطباعة بالعربية أولاً، 0 للإنجليزية أولاً
-- إذا كان ESC/POS USB:
-  - USB_VENDOR_ID (مثال: 0x04b8)
-  - USB_PRODUCT_ID (مثال: 0x0e15)
-- إذا كان ESC/POS شبكة:
-  - NETWORK_PRINTER_HOST (مثال: 192.168.1.50)
-  - NETWORK_PRINTER_PORT (افتراضي 9100)
-- إذا كان CUPS:
-  - CUPS_PRINTER_NAME (اسم الطابعة في النظام)
+## اسم البائع
+- في صفحة البيع يوجد حقل "اسم البائع"، يتم تسجيله في قاعدة البيانات وطباعته في الفاتورة.
 
-في حال عدم دعم العربية:
-- يحاول النظام أولاً الطباعة بالعربية (مع تشكيل النص)، وإذا فشل يتم الطباعة الإنجليزية كبديل.
-
-## التقارير
-- صفحة "التقارير" تعرض تقارير المبيعات يومياً أو شهرياً مع الإجمالي.
-
-## ملاحظات
-- قد يتطلب `pycups` تثبيت حزم نظام: `libcups2-dev`.
-- يمكن إزالة `pycups` من `requirements.txt` إذا لم تكن بحاجة إلى CUPS.
-- تم استخدام Bootstrap RTL للواجهات واتجاه النص RTL.
+## استكشاف الأخطاء
+- يتم تسجيل الأخطاء في `logs/app.log`.
+- إذا فشلت العربية في الطباعة، يتم التحويل التلقائي للإنجليزية.
+- تأكد من متغيرات الطابعة حسب نوعها.

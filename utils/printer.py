@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 # Optional imports for printing backends
 try:
@@ -14,11 +14,24 @@ except Exception:  # noqa
     cups = None
 
 try:
+    import win32print
+    import win32ui
+    import win32con
+except Exception:  # noqa
+    win32print = None
+    win32ui = None
+    win32con = None
+
+try:
     import arabic_reshaper
     from bidi.algorithm import get_display
 except Exception:  # noqa
     arabic_reshaper = None
     get_display = None
+
+
+class PrinterError(Exception):
+    pass
 
 
 def _shape_arabic(text: str) -> str:
@@ -39,20 +52,15 @@ class PrinterClient:
         self.prefer_arabic = prefer_arabic
 
     def print_receipt(self, receipt_lines_ar: List[str], receipt_lines_en: List[str]) -> str:
-        """Attempt to print in Arabic; fallback to English if not supported or errors occur.
-        Returns 'ar' if Arabic used, 'en' otherwise.
-        """
         if self.prefer_arabic:
             try:
                 self._print_lines_arabic(receipt_lines_ar)
                 return "ar"
             except Exception:
-                # Fallback to English
                 try:
                     self._print_lines_english(receipt_lines_en)
                     return "en"
                 except Exception:
-                    # Last resort: do nothing
                     return "en"
         else:
             try:
@@ -62,8 +70,9 @@ class PrinterClient:
                 return "en"
 
     def _print_lines_arabic(self, lines: List[str]) -> None:
-        if self.backend.startswith("escpos") and Usb is None and Network is None:
-            raise RuntimeError("python-escpos not available")
+        if self.backend == "escpos_usb" or self.backend == "escpos_network":
+            if Usb is None and Network is None:
+                raise PrinterError("python-escpos غير متاح")
         if self.backend == "escpos_usb":
             vendor_id_env = os.environ.get("USB_VENDOR_ID", "0")
             product_id_env = os.environ.get("USB_PRODUCT_ID", "0")
@@ -78,18 +87,32 @@ class PrinterClient:
             self._escpos_print(net_printer, lines, arabic=True)
         elif self.backend == "cups":
             if cups is None:
-                raise RuntimeError("pycups not available")
+                raise PrinterError("pycups غير متاح")
             printer_name = os.environ.get("CUPS_PRINTER_NAME", "POS_Printer")
             conn = cups.Connection()
-            # Use a raw job with simple text. Arabic rendering depends on driver.
             text_data = "\n".join([_shape_arabic(line) for line in lines])
             conn.printData(printer_name, text_data.encode("utf-8"), "Receipt", {})
+        elif self.backend == "win32":
+            if win32print is None:
+                raise PrinterError("win32print غير متاح")
+            printer_name = os.environ.get("WIN32_PRINTER_NAME", win32print.GetDefaultPrinter())
+            hPrinter = win32print.OpenPrinter(printer_name)
+            try:
+                job = win32print.StartDocPrinter(hPrinter, 1, ("Receipt", None, "RAW"))
+                win32print.StartPagePrinter(hPrinter)
+                data = ("\n".join([_shape_arabic(l) for l in lines]) + "\n").encode("utf-8", errors="ignore")
+                win32print.WritePrinter(hPrinter, data)
+                win32print.EndPagePrinter(hPrinter)
+                win32print.EndDocPrinter(hPrinter)
+            finally:
+                win32print.ClosePrinter(hPrinter)
         else:
-            raise ValueError(f"Unsupported backend: {self.backend}")
+            raise PrinterError(f"Backend غير مدعوم: {self.backend}")
 
     def _print_lines_english(self, lines: List[str]) -> None:
-        if self.backend.startswith("escpos") and Usb is None and Network is None:
-            raise RuntimeError("python-escpos not available")
+        if self.backend == "escpos_usb" or self.backend == "escpos_network":
+            if Usb is None and Network is None:
+                raise PrinterError("python-escpos غير متاح")
         if self.backend == "escpos_usb":
             vendor_id_env = os.environ.get("USB_VENDOR_ID", "0")
             product_id_env = os.environ.get("USB_PRODUCT_ID", "0")
@@ -104,16 +127,29 @@ class PrinterClient:
             self._escpos_print(net_printer, lines, arabic=False)
         elif self.backend == "cups":
             if cups is None:
-                raise RuntimeError("pycups not available")
+                raise PrinterError("pycups غير متاح")
             printer_name = os.environ.get("CUPS_PRINTER_NAME", "POS_Printer")
             conn = cups.Connection()
             text_data = "\n".join(lines)
             conn.printData(printer_name, text_data.encode("utf-8"), "Receipt", {})
+        elif self.backend == "win32":
+            if win32print is None:
+                raise PrinterError("win32print غير متاح")
+            printer_name = os.environ.get("WIN32_PRINTER_NAME", win32print.GetDefaultPrinter())
+            hPrinter = win32print.OpenPrinter(printer_name)
+            try:
+                job = win32print.StartDocPrinter(hPrinter, 1, ("Receipt", None, "RAW"))
+                win32print.StartPagePrinter(hPrinter)
+                data = ("\n".join(lines) + "\n").encode("utf-8", errors="ignore")
+                win32print.WritePrinter(hPrinter, data)
+                win32print.EndPagePrinter(hPrinter)
+                win32print.EndDocPrinter(hPrinter)
+            finally:
+                win32print.ClosePrinter(hPrinter)
         else:
-            raise ValueError(f"Unsupported backend: {self.backend}")
+            raise PrinterError(f"Backend غير مدعوم: {self.backend}")
 
     def _escpos_print(self, printer, lines: List[str], arabic: bool) -> None:
-        # Basic formatting: center title, normal text
         try:
             printer.set(align='center', width=1, height=1)
         except Exception:
@@ -123,15 +159,17 @@ class PrinterClient:
             try:
                 printer.text(text + "\n")
             except Exception:
-                # Some printers require byte output
-                printer._raw((text + "\n").encode('utf-8'))
+                try:
+                    printer._raw((text + "\n").encode('utf-8'))
+                except Exception:
+                    pass
         try:
             printer.cut()
         except Exception:
             pass
 
 
-def build_receipt_lines(market_name: str, market_address: str, market_phone: str, sale_date: str, items: List[dict], total_egp: float) -> Tuple[List[str], List[str]]:
+def build_receipt_lines(market_name: str, market_address: str, market_phone: str, sale_date: str, items: List[dict], total_egp: float, seller: Optional[str] = None) -> Tuple[List[str], List[str]]:
     # Arabic lines
     lines_ar: List[str] = []
     lines_ar.append("فاتورة البيع")
@@ -141,6 +179,8 @@ def build_receipt_lines(market_name: str, market_address: str, market_phone: str
     if market_phone:
         lines_ar.append(market_phone)
     lines_ar.append(f"التاريخ: {sale_date}")
+    if seller:
+        lines_ar.append(f"البائع: {seller}")
     lines_ar.append("------------------------------")
     for item in items:
         name = item["name"]
@@ -162,6 +202,8 @@ def build_receipt_lines(market_name: str, market_address: str, market_phone: str
     if market_phone:
         lines_en.append(market_phone)
     lines_en.append(f"Date: {sale_date}")
+    if seller:
+        lines_en.append(f"Seller: {seller}")
     lines_en.append("------------------------------")
     for item in items:
         name = item["name"]

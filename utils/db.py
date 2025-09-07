@@ -39,7 +39,8 @@ def initialize_database() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sale_date TEXT NOT NULL,
             total_egp REAL NOT NULL,
-            print_lang TEXT
+            print_lang TEXT,
+            seller TEXT
         );
         """
     )
@@ -57,6 +58,11 @@ def initialize_database() -> None:
         );
         """
     )
+    # Migration: ensure seller column exists
+    cur.execute("PRAGMA table_info(sales)")
+    cols = [row[1] for row in cur.fetchall()]
+    if "seller" not in cols:
+        cur.execute("ALTER TABLE sales ADD COLUMN seller TEXT")
     conn.commit()
     conn.close()
 
@@ -117,10 +123,10 @@ def delete_product_by_product_id(product_id: str) -> None:
     conn.close()
 
 
-def create_sale_with_items(sale_date: str, items: List[Dict], total_egp: float) -> int:
+def create_sale_with_items(sale_date: str, items: List[Dict], total_egp: float, seller: Optional[str] = None) -> int:
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO sales (sale_date, total_egp, print_lang) VALUES (?, ?, ?)", (sale_date, total_egp, None))
+    cur.execute("INSERT INTO sales (sale_date, total_egp, print_lang, seller) VALUES (?, ?, ?, ?)", (sale_date, total_egp, None, seller))
     sale_id = cur.lastrowid
     for item in items:
         cur.execute(

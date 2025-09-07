@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3 class="mb-3">{{ title }}</h3>
+<div class="card">
+  <div class="card-body">
+    <form method="post" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">كود المنتج</label>
+        <input type="text" class="form-control" name="product_id" value="{{ product['product_id'] if product else '' }}" {% if product %}readonly{% endif %} required>
+      </div>
+      <div class="col-md-8">
+        <label class="form-label">اسم المنتج</label>
+        <input type="text" class="form-control" name="name" value="{{ product['name'] if product else '' }}" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">السعر (EGP)</label>
+        <input type="number" step="0.01" class="form-control" name="price" value="{{ product['price_egp'] if product else '' }}" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">الكمية</label>
+        <input type="number" class="form-control" name="quantity" value="{{ product['quantity'] if product else 0 }}" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">تاريخ الإضافة</label>
+        <input type="date" class="form-control" name="date_added" value="{{ product['date_added'] if product else '' }}">
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">{{ action_label }}</button>
+        <a class="btn btn-secondary" href="{{ url_for('products_list') }}">رجوع</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

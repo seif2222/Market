@@ -1,285 +1,164 @@
-{% extends "base.html" %}
-
-{% block title %}نقطة البيع - نظام إدارة السوق{% endblock %}
-
+{% extends 'base.html' %}
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="row">
-        <!-- Product Selection -->
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5>
-                        <i class="fas fa-shopping-cart me-2"></i>
-                        اختيار المنتجات
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <!-- Search -->
-                    <div class="mb-3">
-                        <input type="text" id="productSearch" class="form-control" 
-                               placeholder="ابحث عن منتج أو امسح رمز QR...">
-                    </div>
-                    
-                    <!-- Products Grid -->
-                    <div class="row" id="productsGrid">
-                        {% for product in products %}
-                        <div class="col-md-4 col-lg-3 mb-3 product-card" data-product-id="{{ product.id }}" 
-                             data-product-name="{{ product.name }}" data-product-price="{{ product.price }}">
-                            <div class="card product-item h-100" style="cursor: pointer;">
-                                <div class="card-body text-center">
-                                    <h6 class="card-title">{{ product.name }}</h6>
-                                    <p class="text-primary fw-bold">{{ "%.2f"|format(product.price) }} جنيه</p>
-                                    <p class="text-muted small">المخزون: {{ product.quantity }}</p>
-                                    <button class="btn btn-sm btn-primary add-to-cart" 
-                                            data-product-id="{{ product.id }}">
-                                        <i class="fas fa-plus"></i>
-                                        إضافة
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Shopping Cart -->
-        <div class="col-md-4">
-            <div class="card sticky-top">
-                <div class="card-header">
-                    <h5>
-                        <i class="fas fa-receipt me-2"></i>
-                        سلة التسوق
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <!-- Customer Info -->
-                    <div class="mb-3">
-                        <label for="customerName" class="form-label">اسم العميل (اختياري)</label>
-                        <input type="text" class="form-control" id="customerName" placeholder="اسم العميل">
-                    </div>
-                    <div class="mb-3">
-                        <label for="customerPhone" class="form-label">رقم الهاتف (اختياري)</label>
-                        <input type="text" class="form-control" id="customerPhone" placeholder="رقم الهاتف">
-                    </div>
-                    
-                    <!-- Cart Items -->
-                    <div id="cartItems" class="mb-3">
-                        <div class="text-center text-muted" id="emptyCart">
-                            <i class="fas fa-shopping-cart fa-2x mb-2"></i>
-                            <p>السلة فارغة</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Total -->
-                    <div class="border-top pt-3">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5>المجموع الكلي:</h5>
-                            <h5 class="text-primary" id="totalAmount">0.00 جنيه</h5>
-                        </div>
-                        
-                        <!-- Checkout Button -->
-                        <button id="checkoutBtn" class="btn btn-success w-100" disabled>
-                            <i class="fas fa-cash-register me-1"></i>
-                            إتمام عملية البيع
-                        </button>
-                        
-                        <button id="clearCartBtn" class="btn btn-outline-secondary w-100 mt-2">
-                            <i class="fas fa-trash me-1"></i>
-                            إفراغ السلة
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">صفحة البيع</h3>
+  <div>
+    <button id="btn-complete" class="btn btn-success">إتمام البيع</button>
+    <button id="btn-clear" class="btn btn-outline-danger">إفراغ السلة</button>
+  </div>
 </div>
 
-<!-- Checkout Form (Hidden) -->
-<form id="checkoutForm" method="POST" style="display: none;">
-    <input type="hidden" name="customer_name" id="hiddenCustomerName">
-    <input type="hidden" name="customer_phone" id="hiddenCustomerPhone">
-    <input type="hidden" name="cart_items" id="hiddenCartItems">
-</form>
-{% endblock %}
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">إضافة منتج</h5>
+        <form id="manual-add" class="row g-2">
+          <div class="col">
+            <input type="text" id="manual-product-id" class="form-control" placeholder="كود المنتج (أو امسح QR)" autocomplete="off">
+          </div>
+          <div class="col-auto">
+            <input type="number" id="manual-qty" class="form-control" value="1" min="1">
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-primary" type="submit">إضافة</button>
+          </div>
+        </form>
+        <input type="text" id="qr-hidden" class="visually-hidden" autocomplete="off">
+        <small class="text-muted">المسح بالـ QR سيملأ الحقل المخفي تلقائياً.</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">الإجمالي</h5>
+        <div class="display-6">{{ '%.2f'|format(subtotal) }} EGP</div>
+      </div>
+    </div>
+  </div>
+</div>
 
-{% block scripts %}
+<div class="card">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>الكود</th>
+            <th>الاسم</th>
+            <th>السعر</th>
+            <th>الكمية</th>
+            <th>الإجمالي</th>
+            <th>إجراء</th>
+          </tr>
+        </thead>
+        <tbody id="cart-body">
+          {% for it in cart_items %}
+          <tr data-pid="{{ it.product_id }}">
+            <td>{{ it.product_id }}</td>
+            <td>{{ it.name }}</td>
+            <td>{{ '%.2f'|format(it.price_egp) }}</td>
+            <td style="width:140px">
+              <input type="number" class="form-control form-control-sm qty-input" value="{{ it.quantity }}" min="0">
+            </td>
+            <td class="line-total">{{ '%.2f'|format(it.line_total) }}</td>
+            <td><button class="btn btn-sm btn-danger btn-remove">حذف</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
-let cart = [];
-let products = {
-    {% for product in products %}
-    {{ product.id }}: {
-        id: {{ product.id }},
-        name: "{{ product.name }}",
-        price: {{ product.price }},
-        quantity: {{ product.quantity }}
-    }{% if not loop.last %},{% endif %}
-    {% endfor %}
-};
+(function(){
+  const hidden = document.getElementById('qr-hidden');
+  const manualForm = document.getElementById('manual-add');
+  const manualId = document.getElementById('manual-product-id');
+  const manualQty = document.getElementById('manual-qty');
+  const btnComplete = document.getElementById('btn-complete');
+  const btnClear = document.getElementById('btn-clear');
 
-// Add to cart functionality
-document.querySelectorAll('.add-to-cart').forEach(button => {
-    button.addEventListener('click', function() {
-        const productId = parseInt(this.dataset.productId);
-        addToCart(productId);
-    });
-});
+  // Focus hidden input to capture QR scanner keystrokes
+  function focusHidden(){ hidden.focus(); }
+  window.addEventListener('load', focusHidden);
+  window.addEventListener('click', focusHidden);
 
-// Product card click
-document.querySelectorAll('.product-item').forEach(card => {
-    card.addEventListener('click', function() {
-        const productId = parseInt(this.closest('.product-card').dataset.productId);
-        addToCart(productId);
-    });
-});
-
-function addToCart(productId) {
-    const product = products[productId];
-    if (!product || product.quantity === 0) {
-        alert('هذا المنتج غير متوفر');
-        return;
+  // Accumulate scanner input until Enter
+  let buffer = '';
+  hidden.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const pid = buffer.trim();
+      buffer = '';
+      if (pid) addToCart(pid, 1);
+      e.preventDefault();
+      return;
     }
-    
-    // Check if product already in cart
-    const existingItem = cart.find(item => item.product_id === productId);
-    if (existingItem) {
-        if (existingItem.quantity < product.quantity) {
-            existingItem.quantity++;
-        } else {
-            alert('لا يمكن إضافة المزيد من هذا المنتج (المخزون محدود)');
-            return;
-        }
+    if (e.key.length === 1) buffer += e.key;
+  });
+
+  manualForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pid = manualId.value.trim();
+    const qty = Math.max(1, parseInt(manualQty.value || '1'));
+    if (!pid) return;
+    await addToCart(pid, qty);
+    manualId.value='';
+    manualQty.value='1';
+  });
+
+  async function addToCart(product_id, quantity){
+    const res = await fetch('{{ url_for('cart_add') }}',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({product_id, quantity})
+    });
+    const data = await res.json();
+    if (!data.ok) { alert(data.message || 'خطأ'); return; }
+    location.reload();
+  }
+
+  document.querySelectorAll('.qty-input').forEach((input)=>{
+    input.addEventListener('change', async (e)=>{
+      const tr = e.target.closest('tr');
+      const pid = tr.getAttribute('data-pid');
+      const qty = Math.max(0, parseInt(e.target.value||'0'));
+      const res = await fetch('{{ url_for('cart_update') }}',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({product_id: pid, quantity: qty})
+      });
+      location.reload();
+    });
+  });
+
+  document.querySelectorAll('.btn-remove').forEach((btn)=>{
+    btn.addEventListener('click', async (e)=>{
+      const tr = e.target.closest('tr');
+      const pid = tr.getAttribute('data-pid');
+      await fetch('{{ url_for('cart_update') }}',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({product_id: pid, quantity: 0})
+      });
+      location.reload();
+    });
+  });
+
+  btnClear.addEventListener('click', async ()=>{
+    await fetch('{{ url_for('cart_clear') }}', {method:'POST'});
+    location.reload();
+  });
+
+  btnComplete.addEventListener('click', async ()=>{
+    const res = await fetch('{{ url_for('sale_complete') }}', {method:'POST'});
+    const data = await res.json();
+    if (data.ok) {
+      alert('تم إتمام البيع. رقم العملية: ' + data.sale_id + ' (' + data.used_lang + ')');
+      location.reload();
     } else {
-        cart.push({
-            product_id: productId,
-            name: product.name,
-            price: product.price,
-            quantity: 1,
-            max_quantity: product.quantity
-        });
+      alert(data.message || 'فشل إتمام البيع');
     }
-    
-    updateCartDisplay();
-}
-
-function removeFromCart(productId) {
-    cart = cart.filter(item => item.product_id !== productId);
-    updateCartDisplay();
-}
-
-function updateQuantity(productId, newQuantity) {
-    const item = cart.find(item => item.product_id === productId);
-    if (item) {
-        if (newQuantity <= 0) {
-            removeFromCart(productId);
-        } else if (newQuantity <= item.max_quantity) {
-            item.quantity = newQuantity;
-            updateCartDisplay();
-        } else {
-            alert('الكمية المطلوبة أكبر من المخزون المتوفر');
-        }
-    }
-}
-
-function updateCartDisplay() {
-    const cartItemsContainer = document.getElementById('cartItems');
-    const emptyCart = document.getElementById('emptyCart');
-    const totalAmount = document.getElementById('totalAmount');
-    const checkoutBtn = document.getElementById('checkoutBtn');
-    
-    if (cart.length === 0) {
-        emptyCart.style.display = 'block';
-        cartItemsContainer.innerHTML = emptyCart.outerHTML;
-        totalAmount.textContent = '0.00 جنيه';
-        checkoutBtn.disabled = true;
-        return;
-    }
-    
-    emptyCart.style.display = 'none';
-    
-    let cartHTML = '';
-    let total = 0;
-    
-    cart.forEach(item => {
-        const itemTotal = item.price * item.quantity;
-        total += itemTotal;
-        
-        cartHTML += `
-            <div class="cart-item mb-2 p-2 border rounded">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h6 class="mb-0">${item.name}</h6>
-                    <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart(${item.product_id})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="row align-items-center">
-                    <div class="col-6">
-                        <div class="input-group input-group-sm">
-                            <button class="btn btn-outline-secondary" type="button" 
-                                    onclick="updateQuantity(${item.product_id}, ${item.quantity - 1})">-</button>
-                            <input type="number" class="form-control text-center" value="${item.quantity}" 
-                                   min="1" max="${item.max_quantity}" 
-                                   onchange="updateQuantity(${item.product_id}, parseInt(this.value))">
-                            <button class="btn btn-outline-secondary" type="button" 
-                                    onclick="updateQuantity(${item.product_id}, ${item.quantity + 1})">+</button>
-                        </div>
-                    </div>
-                    <div class="col-6 text-end">
-                        <small class="text-muted">${item.price.toFixed(2)} × ${item.quantity}</small><br>
-                        <strong>${itemTotal.toFixed(2)} جنيه</strong>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    cartItemsContainer.innerHTML = cartHTML;
-    totalAmount.textContent = total.toFixed(2) + ' جنيه';
-    checkoutBtn.disabled = false;
-}
-
-// Product search
-document.getElementById('productSearch').addEventListener('input', function() {
-    const searchTerm = this.value.toLowerCase();
-    document.querySelectorAll('.product-card').forEach(card => {
-        const productName = card.dataset.productName.toLowerCase();
-        if (productName.includes(searchTerm)) {
-            card.style.display = 'block';
-        } else {
-            card.style.display = 'none';
-        }
-    });
-});
-
-// Clear cart
-document.getElementById('clearCartBtn').addEventListener('click', function() {
-    if (cart.length > 0 && confirm('هل أنت متأكد من إفراغ السلة؟')) {
-        cart = [];
-        updateCartDisplay();
-    }
-});
-
-// Checkout
-document.getElementById('checkoutBtn').addEventListener('click', function() {
-    if (cart.length === 0) {
-        alert('السلة فارغة');
-        return;
-    }
-    
-    if (confirm('هل أنت متأكد من إتمام عملية البيع؟')) {
-        // Update hidden form fields
-        document.getElementById('hiddenCustomerName').value = document.getElementById('customerName').value;
-        document.getElementById('hiddenCustomerPhone').value = document.getElementById('customerPhone').value;
-        document.getElementById('hiddenCartItems').value = JSON.stringify(cart);
-        
-        // Submit form
-        document.getElementById('checkoutForm').submit();
-    }
-});
-
-// Initialize cart display
-updateCartDisplay();
+  });
+})();
 </script>
 {% endblock %}

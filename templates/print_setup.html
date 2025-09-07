@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}إعدادات الطباعة - نظام إدارة السوق{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>
+                <i class="fas fa-print me-2 text-primary"></i>
+                إعدادات الطباعة
+            </h2>
+            <p class="text-muted">إدارة وتكوين نظام الطباعة المباشرة</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- System Information -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        معلومات النظام
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td><strong>نظام التشغيل:</strong></td>
+                            <td>
+                                <span class="badge bg-primary">{{ system_info.system }}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>دعم اللغة العربية:</strong></td>
+                            <td>
+                                {% if system_info.arabic_support %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>
+                                        مدعوم
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        غير مفعل
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>عدد الطابعات المتاحة:</strong></td>
+                            <td>
+                                <span class="badge bg-info">{{ system_info.printers|length }}</span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Available Printers -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-printer me-2"></i>
+                        الطابعات المتاحة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if system_info.printers %}
+                        <div class="list-group">
+                            {% for printer in system_info.printers %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-printer me-2 text-primary"></i>
+                                        {{ printer }}
+                                    </div>
+                                    <span class="badge bg-success">متاح</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <p>لم يتم العثور على طابعات</p>
+                            <small>تأكد من تثبيت وتشغيل الطابعات</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Thermal Printer Setup -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-receipt me-2"></i>
+                        إعداد الطابعة الحرارية (اختياري)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        إذا كان لديك طابعة حرارية (POS)، يمكنك إعدادها هنا للحصول على طباعة أسرع وأوضح.
+                    </p>
+                    
+                    <form id="thermalSetupForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="printerType" class="form-label">نوع الاتصال</label>
+                                <select class="form-select" id="printerType">
+                                    <option value="usb">USB</option>
+                                    <option value="serial">Serial Port</option>
+                                    <option value="network">شبكة (Ethernet/WiFi)</option>
+                                    <option value="file">ملف (للاختبار)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <button type="submit" class="btn btn-primary mt-4">
+                                    <i class="fas fa-cog me-1"></i>
+                                    إعداد الطابعة الحرارية
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test Print -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-test-tube me-2"></i>
+                        اختبار الطباعة
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <p class="text-muted">اختبر نظام الطباعة بفاتورة تجريبية</p>
+                    
+                    <a href="{{ url_for('test_print') }}" class="btn btn-success">
+                        <i class="fas fa-print me-1"></i>
+                        طباعة تجريبية
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Print Settings Info -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        كيفية عمل نظام الطباعة المباشرة
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">الطباعة العادية:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>تعمل مع جميع الطابعات العادية</li>
+                                <li><i class="fas fa-check text-success me-2"></i>طباعة مباشرة بدون حفظ PDF</li>
+                                <li><i class="fas fa-check text-success me-2"></i>دعم اللغة العربية تلقائياً</li>
+                                <li><i class="fas fa-check text-success me-2"></i>نسخة إنجليزية احتياطية</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-primary">الطباعة الحرارية (POS):</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>سرعة عالية في الطباعة</li>
+                                <li><i class="fas fa-check text-success me-2"></i>توفير في الورق والحبر</li>
+                                <li><i class="fas fa-check text-success me-2"></i>مقاس إيصال مناسب</li>
+                                <li><i class="fas fa-check text-success me-2"></i>مثالية للمحلات التجارية</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>نصيحة:</strong> النظام يكشف تلقائياً إذا كانت الطابعة تدعم UTF-8 (العربية). 
+                        إذا لم تدعم، سيطبع نسخة إنجليزية بديلة تلقائياً.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('thermalSetupForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const printerType = document.getElementById('printerType').value;
+    const formData = new FormData();
+    formData.append('printer_type', printerType);
+    
+    // Show loading
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>جاري الإعداد...';
+    submitBtn.disabled = true;
+    
+    fetch('/setup_thermal_printer', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('تم إعداد الطابعة الحرارية بنجاح: ' + data.message);
+        } else {
+            alert('فشل إعداد الطابعة الحرارية: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('حدث خطأ في الإعداد');
+    })
+    .finally(() => {
+        // Restore button
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+</script>
+{% endblock %}

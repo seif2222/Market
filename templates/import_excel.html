@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}استيراد من إكسيل - نظام إدارة السوق{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4>
+                        <i class="fas fa-file-excel me-2 text-success"></i>
+                        استيراد المنتجات من ملف إكسيل
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Upload Form -->
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="excel_file" class="form-label">
+                                <strong>اختر ملف الإكسيل:</strong>
+                            </label>
+                            <input type="file" class="form-control" id="excel_file" name="excel_file" 
+                                   accept=".xlsx,.xls" required>
+                            <div class="form-text">
+                                يجب أن يحتوي الملف على الأعمدة التالية: Product ID, Product Name, Price, Quantity, Date Added
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('products') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-right me-1"></i>
+                                العودة للمنتجات
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-upload me-1"></i>
+                                استيراد الملف
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Instructions Card -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle me-2"></i>تعليمات استيراد ملف الإكسيل</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>الأعمدة المطلوبة:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i><strong>Product ID:</strong> رمز المنتج الفريد</li>
+                                <li><i class="fas fa-check text-success me-2"></i><strong>Product Name:</strong> اسم المنتج</li>
+                                <li><i class="fas fa-check text-success me-2"></i><strong>Price:</strong> السعر بالجنيه المصري</li>
+                                <li><i class="fas fa-check text-success me-2"></i><strong>Quantity:</strong> الكمية المتوفرة</li>
+                                <li><i class="fas fa-check text-success me-2"></i><strong>Date Added:</strong> تاريخ إضافة المنتج</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>ملاحظات مهمة:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-exclamation-triangle text-warning me-2"></i>تأكد من صحة تنسيق التواريخ</li>
+                                <li><i class="fas fa-exclamation-triangle text-warning me-2"></i>الأسعار يجب أن تكون أرقام</li>
+                                <li><i class="fas fa-exclamation-triangle text-warning me-2"></i>Product ID يجب أن يكون فريد</li>
+                                <li><i class="fas fa-exclamation-triangle text-warning me-2"></i>سيتم توليد QR Code لكل منتج</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>نصيحة:</strong> إذا كان المنتج موجود مسبقاً (نفس Product ID)، سيتم تحديث بياناته.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sample File Download -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-download me-2"></i>تحميل ملف نموذج</h5>
+                </div>
+                <div class="card-body">
+                    <p>يمكنك تحميل ملف إكسيل نموذج ليساعدك في فهم التنسيق المطلوب:</p>
+                    <a href="{{ url_for('download_sample_excel') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-file-excel me-1"></i>
+                        تحميل ملف نموذج
+                    </a>
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('export_current_products') }}" class="btn btn-outline-success">
+                            <i class="fas fa-file-export me-1"></i>
+                            تصدير المنتجات الحالية
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
